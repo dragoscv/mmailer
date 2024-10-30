@@ -1,0 +1,5 @@
+{
+    "scripts": {
+        "deploy": "gcloud run deploy mmailer --image gcr.io/bursa-x---dev/php-email-api --set-secrets DKIM_PRIVATE_KEY_PATH=dkim_private_key:latest"
+    }
+}

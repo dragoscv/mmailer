@@ -1,4 +1,3 @@
-
 # PHP Email API with DKIM for Google Cloud Run
 
 This project sets up a PHP REST API for sending emails in batches with DKIM signing, containerized with Docker and deployed to Google Cloud Run.
@@ -39,7 +38,16 @@ The `Dockerfile` sets up a PHP environment with Apache and installs necessary de
 FROM php:8.1-apache
 
 # Install dependencies
-RUN apt-get update && apt-get install -y     libpng-dev     libjpeg-dev     libfreetype6-dev     libonig-dev     libxml2-dev     curl     unzip     git     && docker-php-ext-install pdo_mysql mbstring
+RUN apt-get update && apt-get install -y \
+    libpng-dev \
+    libjpeg-dev \
+    libfreetype6-dev \
+    libonig-dev \
+    libxml2-dev \
+    curl \
+    unzip \
+    git \
+    && docker-php-ext-install pdo_mysql mbstring
 
 # Enable Apache rewrite module
 RUN a2enmod rewrite
@@ -86,9 +94,57 @@ require 'vendor/autoload.php';
 use PHPMailer\PHPMailer\PHPMailer;
 use PHPMailer\PHPMailer\Exception;
 
-// Basic API setup and email sending logic here
-// Refer to `sendEmail.php` in the project for detailed code.
+header("Content-Type: application/json");
+
+function sendBatchedEmails($payload, $emailAddresses, $batchSize = 500) {
+    $results = [];
+    $batches = array_chunk($emailAddresses, $batchSize);
+
+    foreach ($batches as $index => $batch) {
+        $mail = new PHPMailer(true);
+        try {
+            $mail->isSMTP();
+            $mail->Host = 'localhost';
+            $mail->Port = 25;
+
+            // DKIM settings (as a mounted file or environment variable)
+            $mail->DKIM_domain = getenv('DKIM_DOMAIN');
+            $mail->DKIM_selector = getenv('DKIM_SELECTOR');
+            $mail->DKIM_private = getenv('DKIM_PRIVATE_KEY_PATH');
+            $mail->DKIM_passphrase = '';
+            $mail->DKIM_identity = $mail->From;
+
+            // Set email content
+            $mail->setFrom('your-email@example.com', 'Your Name');
+            foreach ($batch as $address) {
+                $mail->addAddress($address);
+            }
+            $mail->Subject = $payload['subject'];
+            $mail->Body    = $payload['html'];
+            $mail->AltBody = $payload['text'];
+
+            // Send email
+            $mail->send();
+            $results[] = "Batch " . ($index + 1) . " sent successfully.";
+        } catch (Exception $e) {
+            $results[] = "Batch " . ($index + 1) . " failed: {$mail->ErrorInfo}";
+        }
+        $mail->clearAddresses();
+    }
+    return $results;
+}
+
+$input = json_decode(file_get_contents('php://input'), true);
+if (isset($input['payload']) && isset($input['emailAddresses'])) {
+    $payload = $input['payload'];
+    $emailAddresses = $input['emailAddresses'];
+    $results = sendBatchedEmails($payload, $emailAddresses);
+    echo json_encode(["results" => $results]);
+} else {
+    echo json_encode(["error" => "Invalid request"]);
+}
 ?>
+
 ```
 
 ---
@@ -113,6 +169,7 @@ echo -n "YOUR_PRIVATE_KEY_CONTENT" | gcloud secrets create dkim_private_key --da
 ```
 
 Grant access to Cloud Run:
+
 ```bash
 gcloud secrets add-iam-policy-binding dkim_private_key     --member="serviceAccount:[CLOUD_RUN_SERVICE_ACCOUNT]"     --role="roles/secretmanager.secretAccessor"
 ```
