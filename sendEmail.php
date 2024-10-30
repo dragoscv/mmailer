@@ -15,9 +15,9 @@ function sendBatchedEmails($payload, $emailAddresses, $batchSize = 500) {
         try {
             $mail->isSMTP();
             $mail->Host = 'localhost';
-            $mail->Port = 465;
+            $mail->Port = 587; // Use port 587 for STARTTLS
             $mail->SMTPAuth = false; // No SMTP authentication for localhost
-            $mail->SMTPSecure = PHPMailer::ENCRYPTION_SMTPS; // Use SSL for port 465
+            $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS; // Use STARTTLS for port 587
 
             // DKIM settings (as a mounted file or environment variable)
             $mail->DKIM_domain = getenv('DKIM_DOMAIN');

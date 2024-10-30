@@ -39,14 +39,22 @@ ENV PORT 8080
 RUN sed -i 's/Listen 80/Listen 8080/' /etc/apache2/ports.conf
 RUN sed -i 's/:80/:8080/g' /etc/apache2/sites-available/000-default.conf
 
-# Configure Postfix for SMTPS (port 465)
+# Configure Postfix for STARTTLS on port 587
 RUN echo "relayhost = " >> /etc/postfix/main.cf \
     && echo "smtpd_tls_cert_file=/etc/ssl/certs/postfix_cert.pem" >> /etc/postfix/main.cf \
     && echo "smtpd_tls_key_file=/etc/ssl/private/postfix_key.pem" >> /etc/postfix/main.cf \
-    && echo "smtpd_tls_security_level=encrypt" >> /etc/postfix/main.cf \
-    && echo "smtpd_tls_wrappermode=yes" >> /etc/postfix/main.cf \
+    && echo "smtpd_tls_security_level=may" >> /etc/postfix/main.cf \
+    && echo "smtpd_tls_auth_only=yes" >> /etc/postfix/main.cf \
+    && echo "smtp_tls_security_level=encrypt" >> /etc/postfix/main.cf \
+    && echo "smtp_tls_note_starttls_offer=yes" >> /etc/postfix/main.cf \
     && echo "inet_protocols = all" >> /etc/postfix/main.cf \
-    && echo "smtpd_tls_loglevel = 1" >> /etc/postfix/main.cf
+    && echo "smtpd_tls_loglevel = 1" >> /etc/postfix/main.cf \
+    && echo "submission inet n       -       n       -       -       smtpd" >> /etc/postfix/master.cf \
+    && echo "  -o smtpd_tls_security_level=encrypt" >> /etc/postfix/master.cf \
+    && echo "  -o smtpd_sasl_auth_enable=yes" >> /etc/postfix/master.cf \
+    && echo "  -o smtpd_tls_cert_file=/etc/ssl/certs/postfix_cert.pem" >> /etc/postfix/master.cf \
+    && echo "  -o smtpd_tls_key_file=/etc/ssl/private/postfix_key.pem" >> /etc/postfix/master.cf \
+    && echo "  -o smtpd_tls_auth_only=yes" >> /etc/postfix/master.cf
 
 # Copy SSL certificates (self-signed or from a certificate authority)
 # Make sure to replace `postfix_cert.pem` and `postfix_key.pem` with your actual certificate files.
